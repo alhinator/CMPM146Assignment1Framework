@@ -9,8 +9,8 @@ public class SteeringBehavior : MonoBehaviour
     public List<Vector3> path;
     // you can use this label to show debug information,
     // like the distance to the (next) target
-    public TextMeshProUGUI label;
-    
+    public TextMeshProUGUI label, label2;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {

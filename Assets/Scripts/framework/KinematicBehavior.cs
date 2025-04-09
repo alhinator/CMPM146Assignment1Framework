@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
-
+using UnityEditor.Experimental.GraphView;
 public class KinematicBehavior : MonoBehaviour
 {
 
@@ -20,12 +20,19 @@ public class KinematicBehavior : MonoBehaviour
     public Quaternion start_rotation;
 
     public MapController map;
+
+    private SteeringBehavior steeringBehavior;
+    private float angleToTarget;
+    private float distanceToTarget;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         start_position = transform.position;
         start_rotation = transform.rotation;
         EventBus.OnSetMap += ResetCar;
+
+        steeringBehavior = GetComponent<SteeringBehavior>();
     }
 
     // Update is called once per frame
@@ -72,6 +79,86 @@ public class KinematicBehavior : MonoBehaviour
             rotational_velocity += Mathf.Sign(racc) * rotational_acceleration * Time.deltaTime;
             rotational_velocity = Mathf.Clamp(rotational_velocity, -max_rotational_velocity, max_rotational_velocity);
         }
+
+        UpdateAngleAndDistanceToTarget();
+        SetDesiredRotationalVelocity(DetermineDesiredRotationalVelocity());
+        SetDesiredSpeed(DetermineDesiredSpeed());
+    }
+    private void UpdateAngleAndDistanceToTarget()
+    {
+        Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
+        distanceToTarget = Vector3.Distance(this.transform.position, steeringBehavior.target);
+
+        angleToTarget = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
+
+    }
+    private float DetermineDesiredSpeed() //aleghart's code
+    {
+        float absAngle = Mathf.Abs(angleToTarget);
+        steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
+        float desired = 0;
+        bool high, a, b, c, d, e, f;
+        high = absAngle >= 60; //high turn angle
+        a = distanceToTarget > 20 && absAngle < 60; //far and generally ahead
+        b = distanceToTarget <= 20 && distanceToTarget >= 10 && absAngle < 60; // midrange and generally ahead;
+        c = distanceToTarget <= 12; //close;
+        d = distanceToTarget <= 6 && distanceToTarget > 0.75f && speed > max_speed * 0.15f;//quite close and high speed
+        e = distanceToTarget <= 6 && distanceToTarget > 0.75f && speed < max_speed * 0.15f; //quite close and low speed
+        f = distanceToTarget <= 0.75f; // within bounds
+        if (d || f)
+        {
+            desired = 0;
+        }
+        else if (high)
+        {
+            desired = max_speed * 0.5f;
+        }
+        else if (a)
+        {
+            desired = max_speed;
+        }
+        else if (b)
+        {
+            desired = max_speed * 0.6f;
+        }
+        else if (c)
+        {
+            desired = max_speed * 0.25f;
+        }
+        else if (e)
+        {
+            desired = max_speed * 0.15f;
+        }
+        else
+        {
+            desired = 0;
+        }
+        return desired;
+
+
+    }
+    private float DetermineDesiredRotationalVelocity() //aleghart's code
+    {
+        Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
+        float absAngle = Mathf.Abs(angleToTarget);
+        steeringBehavior.label.text = "angle to target: " + angleToTarget;
+        float desired;
+
+        float percentOfTurn = absAngle / 180;
+
+        desired = Mathf.Lerp(max_rotational_velocity * 0.2f, max_rotational_velocity, percentOfTurn);
+
+        if (absAngle < 10)
+        {
+            desired = max_rotational_velocity * 0.05f;
+        }
+        if (absAngle < 2 || distanceToTarget < 0.75f)
+        {
+            desired = 0;
+        }
+
+        desired *= Mathf.Sign(angleToTarget);
+        return desired;
     }
 
     public void SetDesiredSpeed(float des)
