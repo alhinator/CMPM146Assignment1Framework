@@ -1090,14 +1090,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotational_velocity: 0
   desired_rotational_velocity: 0
-  max_rotational_velocity: 100
+  max_rotational_velocity: 200
   speed: 0
   desired_speed: 0
   max_speed: 25
   linear_acceleration: 20
   rotational_acceleration: 255
   holonomic: 0
-  nonholonomic_factor: 3
+  nonholonomic_factor: 5
   start_position: {x: 0, y: 0, z: 0}
   start_rotation: {x: 0, y: 0, z: 0, w: 0}
   map: {fileID: 0}
