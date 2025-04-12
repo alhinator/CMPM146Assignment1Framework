@@ -190,4 +190,9 @@ public class KinematicBehavior : MonoBehaviour
     {
         return max_rotational_velocity;
     }
+
+    public float GetdistanceToTarget() //bdelinel's code
+    {
+        return distanceToTarget;
+    }
 }

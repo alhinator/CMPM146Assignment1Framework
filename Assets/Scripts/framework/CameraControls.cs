@@ -81,7 +81,7 @@ public class CameraControls : MonoBehaviour
             {
                 path.Add(world.Value);
                 EventBus.SetPath(path);
-                EventBus.ShowTarget(world.Value);
+                //EventBus.ShowTarget(world.Value); This prevented the first path point from displaying properly. I'll leave it up to you if we should remove this line completely.
                 path = new List<Vector3>();
                 UpdatePathConstructionViz();
             }

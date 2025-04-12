@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
 using TMPro;
 
 public class SteeringBehavior : MonoBehaviour
@@ -28,6 +29,8 @@ public class SteeringBehavior : MonoBehaviour
 
         // you can use kinematic.SetDesiredSpeed(...) and kinematic.SetDesiredRotationalVelocity(...)
         //    to "request" acceleration/decceleration to a target speed/rotational velocity
+
+
     }
 
     public void SetTarget(Vector3 target)
@@ -39,6 +42,23 @@ public class SteeringBehavior : MonoBehaviour
     public void SetPath(List<Vector3> path)
     {
         this.path = path;
+        if (path != null && path.Count > 0)
+        {
+            StartCoroutine(FollowPath());
+        }
+    }
+
+    private IEnumerator FollowPath() //bdelinel's code
+    {
+        int pointsTraveled = 0;
+        while (pointsTraveled < path.Count)
+        {
+            Vector3 currentTarget = path[pointsTraveled];
+            this.SetTarget(currentTarget);
+            yield return null;
+            yield return new WaitUntil(() => kinematic.GetdistanceToTarget() < 0.75f);
+            pointsTraveled++;
+        }
     }
 
     public void SetMap(List<Wall> outline)
