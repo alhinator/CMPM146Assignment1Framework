@@ -81,18 +81,18 @@ public class KinematicBehavior : MonoBehaviour
         }
 
         UpdateAngleAndDistanceToTarget();
-        SetDesiredRotationalVelocity(DetermineDesiredRotationalVelocity());
-        SetDesiredSpeed(DetermineDesiredSpeed());
+
     }
     private void UpdateAngleAndDistanceToTarget()
     {
         Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
         distanceToTarget = Vector3.Distance(this.transform.position, steeringBehavior.target);
 
+
         angleToTarget = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
 
     }
-    private float DetermineDesiredSpeed() //aleghart's code
+    public float DetermineDesiredSpeedOld() //aleghart's code, from single-target follow
     {
         float absAngle = Mathf.Abs(angleToTarget);
         steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
@@ -137,7 +137,51 @@ public class KinematicBehavior : MonoBehaviour
 
 
     }
-    private float DetermineDesiredRotationalVelocity() //aleghart's code
+
+    public float DetermineDesiredSpeed(bool lastTarget) //aleghart's code
+    {
+        float absAngle = Mathf.Abs(angleToTarget);
+        steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
+        float desired;
+        if (distanceToTarget > 20) //outside of arrival tolerance
+        {
+            
+            desired = Mathf.Lerp(max_speed / 3, max_speed, distanceToTarget / 20);
+            if (Mathf.Abs(angleToTarget) > 45)
+            {
+                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, Mathf.Abs(angleToTarget)/180);
+                desired *= angleMultiplier;
+            }
+
+        }
+        else if (distanceToTarget < 20 && !lastTarget)
+        {
+            if (CheckNextTurn())
+            {
+                desired = max_speed / 4;
+            }
+            else
+            {
+                desired = max_speed;
+            }
+        }
+        else
+        {
+            desired = Mathf.Lerp(0, max_speed/1.5f, distanceToTarget / 10);
+            if (Mathf.Abs(angleToTarget) > 45)
+            {
+                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, Mathf.Abs(angleToTarget) / 180);
+                desired *= angleMultiplier;
+            }
+            if(distanceToTarget < 1)
+            {
+                desired = 0;
+            }
+        }
+        return desired;
+    }
+
+    public float DetermineDesiredRotationalVelocityOld() //aleghart's code
     {
         Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
         float absAngle = Mathf.Abs(angleToTarget);
@@ -159,6 +203,34 @@ public class KinematicBehavior : MonoBehaviour
 
         desired *= Mathf.Sign(angleToTarget);
         return desired;
+    }
+    public float DetermineDesiredRotationalVelocity(bool lastTarget)
+    {
+        if (distanceToTarget > 20 || lastTarget)
+        {
+            return DetermineDesiredRotationalVelocityOld();
+        }
+        else
+        {
+            return RotVelToNextTarget();
+        }
+    }
+
+    private float RotVelToNextTarget()
+    {
+        Vector3 next = steeringBehavior.GetNextTarget();
+        if (next == Vector3.negativeInfinity) { return -1.69f; }
+
+        Vector3 nextDir = next - this.transform.position;
+        float nextAngle = Vector3.SignedAngle(this.transform.forward, nextDir, Vector3.up);
+        float absAngle = Mathf.Abs(nextAngle);
+
+        float percentOfTurn = absAngle / 180;
+
+        float desired = Mathf.Lerp(max_rotational_velocity * 0.2f, max_rotational_velocity, percentOfTurn);
+
+        return desired;
+
     }
 
     public void SetDesiredSpeed(float des)
@@ -191,8 +263,21 @@ public class KinematicBehavior : MonoBehaviour
         return max_rotational_velocity;
     }
 
-    public float GetdistanceToTarget() //bdelinel's code
+    public float GetDistanceToTarget() //bdelinel's code
     {
         return distanceToTarget;
     }
+
+    private bool CheckNextTurn()
+    {
+        Vector3 next = steeringBehavior.GetNextTarget();
+        if (next != Vector3.negativeInfinity)
+        {
+            Vector3 directionToTarget = next - this.transform.position;
+            float ang = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
+            return Mathf.Abs(ang) > 60f;
+        }
+        else { return false; }
+    }
+
 }

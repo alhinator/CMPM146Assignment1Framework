@@ -12,12 +12,16 @@ public class SteeringBehavior : MonoBehaviour
     // like the distance to the (next) target
     public TextMeshProUGUI label, label2;
 
+    private bool lookingForFinalPoint;
+    private int pointsTraveled;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         kinematic = GetComponent<KinematicBehavior>();
         target = transform.position;
         path = null;
+        lookingForFinalPoint = true;
         EventBus.OnSetMap += SetMap;
     }
 
@@ -30,18 +34,21 @@ public class SteeringBehavior : MonoBehaviour
         // you can use kinematic.SetDesiredSpeed(...) and kinematic.SetDesiredRotationalVelocity(...)
         //    to "request" acceleration/decceleration to a target speed/rotational velocity
 
-
+        kinematic.SetDesiredRotationalVelocity(kinematic.DetermineDesiredRotationalVelocity(lookingForFinalPoint));
+        kinematic.SetDesiredSpeed(kinematic.DetermineDesiredSpeed(lookingForFinalPoint));
     }
 
     public void SetTarget(Vector3 target)
     {
         this.target = target;
+        lookingForFinalPoint = true;
         EventBus.ShowTarget(target);
     }
 
     public void SetPath(List<Vector3> path)
     {
         this.path = path;
+        lookingForFinalPoint = false;
         if (path != null && path.Count > 0)
         {
             StartCoroutine(FollowPath());
@@ -50,13 +57,24 @@ public class SteeringBehavior : MonoBehaviour
 
     private IEnumerator FollowPath() //bdelinel's code
     {
-        int pointsTraveled = 0;
+        pointsTraveled = 0;
         while (pointsTraveled < path.Count)
         {
             Vector3 currentTarget = path[pointsTraveled];
             this.SetTarget(currentTarget);
             yield return null;
-            yield return new WaitUntil(() => kinematic.GetdistanceToTarget() < 0.75f);
+            //aleghart edited for part 2
+            if(pointsTraveled == path.Count - 1) //we're looking for the final point
+            {
+                Debug.Log("On final point of path.");
+                lookingForFinalPoint = true;
+                yield return new WaitUntil(() => kinematic.GetDistanceToTarget() < 0.75f);
+
+            } else
+            {
+                yield return new WaitUntil(() => kinematic.GetDistanceToTarget() < 10f);
+                //changed to 10f on other points for larger tolerance
+            }
             pointsTraveled++;
         }
     }
@@ -65,5 +83,16 @@ public class SteeringBehavior : MonoBehaviour
     {
         this.path = null;
         this.target = transform.position;
+    }
+
+    public Vector3 GetNextTarget() //aleghart's code
+    {
+        if(path is null || lookingForFinalPoint)
+        {
+            return Vector3.negativeInfinity;
+        } else
+        {
+            return path[pointsTraveled+1];
+        }
     }
 }
