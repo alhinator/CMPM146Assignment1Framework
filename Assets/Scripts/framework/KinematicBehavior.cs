@@ -87,12 +87,15 @@ public class KinematicBehavior : MonoBehaviour
     {
         Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
         distanceToTarget = Vector3.Distance(this.transform.position, steeringBehavior.target);
+        steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
 
 
         angleToTarget = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
+        steeringBehavior.label.text = "angle to target: " + angleToTarget;
+
 
     }
-    public float DetermineDesiredSpeedOld() //aleghart's code, from single-target follow
+    /*public float DetermineDesiredSpeedOld() //aleghart's code, from single-target follow
     {
         float absAngle = Mathf.Abs(angleToTarget);
         steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
@@ -136,20 +139,19 @@ public class KinematicBehavior : MonoBehaviour
         return desired;
 
 
-    }
+    }*/
 
     public float DetermineDesiredSpeed(bool lastTarget) //aleghart's code
     {
         float absAngle = Mathf.Abs(angleToTarget);
-        steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
         float desired;
         if (distanceToTarget > 20) //outside of arrival tolerance
         {
             
             desired = Mathf.Lerp(max_speed / 3, max_speed, distanceToTarget / 20);
-            if (Mathf.Abs(angleToTarget) > 45)
+            if (absAngle > 45)
             {
-                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, Mathf.Abs(angleToTarget)/180);
+                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
                 desired *= angleMultiplier;
             }
 
@@ -170,7 +172,7 @@ public class KinematicBehavior : MonoBehaviour
             desired = Mathf.Lerp(0, max_speed/1.5f, distanceToTarget / 10);
             if (Mathf.Abs(angleToTarget) > 45)
             {
-                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, Mathf.Abs(angleToTarget) / 180);
+                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
                 desired *= angleMultiplier;
             }
             if(distanceToTarget < 1)
@@ -181,16 +183,15 @@ public class KinematicBehavior : MonoBehaviour
         return desired;
     }
 
-    public float DetermineDesiredRotationalVelocityOld() //aleghart's code
+    public float DetermineDesiredRotationalVelocity() //aleghart's code
     {
         Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
         float absAngle = Mathf.Abs(angleToTarget);
-        steeringBehavior.label.text = "angle to target: " + angleToTarget;
         float desired;
 
         float percentOfTurn = absAngle / 180;
 
-        desired = Mathf.Lerp(max_rotational_velocity * 0.2f, max_rotational_velocity, percentOfTurn);
+        desired = Mathf.Lerp(max_rotational_velocity * 0.4f, max_rotational_velocity, percentOfTurn);
 
         if (absAngle < 10)
         {
@@ -203,34 +204,6 @@ public class KinematicBehavior : MonoBehaviour
 
         desired *= Mathf.Sign(angleToTarget);
         return desired;
-    }
-    public float DetermineDesiredRotationalVelocity(bool lastTarget)
-    {
-        if (distanceToTarget > 20 || lastTarget)
-        {
-            return DetermineDesiredRotationalVelocityOld();
-        }
-        else
-        {
-            return RotVelToNextTarget();
-        }
-    }
-
-    private float RotVelToNextTarget()
-    {
-        Vector3 next = steeringBehavior.GetNextTarget();
-        if (next == Vector3.negativeInfinity) { return -1.69f; }
-
-        Vector3 nextDir = next - this.transform.position;
-        float nextAngle = Vector3.SignedAngle(this.transform.forward, nextDir, Vector3.up);
-        float absAngle = Mathf.Abs(nextAngle);
-
-        float percentOfTurn = absAngle / 180;
-
-        float desired = Mathf.Lerp(max_rotational_velocity * 0.2f, max_rotational_velocity, percentOfTurn);
-
-        return desired;
-
     }
 
     public void SetDesiredSpeed(float des)
