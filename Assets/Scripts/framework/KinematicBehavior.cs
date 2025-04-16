@@ -21,10 +21,6 @@ public class KinematicBehavior : MonoBehaviour
 
     public MapController map;
 
-    private SteeringBehavior steeringBehavior;
-    private float angleToTarget;
-    private float distanceToTarget;
-
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -32,7 +28,6 @@ public class KinematicBehavior : MonoBehaviour
         start_rotation = transform.rotation;
         EventBus.OnSetMap += ResetCar;
 
-        steeringBehavior = GetComponent<SteeringBehavior>();
     }
 
     // Update is called once per frame
@@ -80,131 +75,9 @@ public class KinematicBehavior : MonoBehaviour
             rotational_velocity = Mathf.Clamp(rotational_velocity, -max_rotational_velocity, max_rotational_velocity);
         }
 
-        UpdateAngleAndDistanceToTarget();
 
     }
-    private void UpdateAngleAndDistanceToTarget()
-    {
-        Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
-        distanceToTarget = Vector3.Distance(this.transform.position, steeringBehavior.target);
-        steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
 
-
-        angleToTarget = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
-        steeringBehavior.label.text = "angle to target: " + angleToTarget;
-
-
-    }
-    /*public float DetermineDesiredSpeedOld() //aleghart's code, from single-target follow
-    {
-        float absAngle = Mathf.Abs(angleToTarget);
-        steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;
-        float desired = 0;
-        bool high, a, b, c, d, e, f;
-        high = absAngle >= 60; //high turn angle
-        a = distanceToTarget > 20 && absAngle < 60; //far and generally ahead
-        b = distanceToTarget <= 20 && distanceToTarget >= 10 && absAngle < 60; // midrange and generally ahead;
-        c = distanceToTarget <= 12; //close;
-        d = distanceToTarget <= 6 && distanceToTarget > 0.75f && speed > max_speed * 0.15f;//quite close and high speed
-        e = distanceToTarget <= 6 && distanceToTarget > 0.75f && speed < max_speed * 0.15f; //quite close and low speed
-        f = distanceToTarget <= 0.75f; // within bounds
-        if (d || f)
-        {
-            desired = 0;
-        }
-        else if (high)
-        {
-            desired = max_speed * 0.5f;
-        }
-        else if (a)
-        {
-            desired = max_speed;
-        }
-        else if (b)
-        {
-            desired = max_speed * 0.6f;
-        }
-        else if (c)
-        {
-            desired = max_speed * 0.25f;
-        }
-        else if (e)
-        {
-            desired = max_speed * 0.15f;
-        }
-        else
-        {
-            desired = 0;
-        }
-        return desired;
-
-
-    }*/
-
-    public float DetermineDesiredSpeed(bool lastTarget) //aleghart's code
-    {
-        float absAngle = Mathf.Abs(angleToTarget);
-        float desired;
-        if (distanceToTarget > 20) //outside of arrival tolerance
-        {
-            
-            desired = Mathf.Lerp(max_speed / 3, max_speed, distanceToTarget / 20);
-            if (absAngle > 45)
-            {
-                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
-                desired *= angleMultiplier;
-            }
-
-        }
-        else if (distanceToTarget < 20 && !lastTarget)
-        {
-            if (CheckNextTurn())
-            {
-                desired = max_speed / 4;
-            }
-            else
-            {
-                desired = max_speed;
-            }
-        }
-        else
-        {
-            desired = Mathf.Lerp(0, max_speed/1.5f, distanceToTarget / 10);
-            if (Mathf.Abs(angleToTarget) > 45)
-            {
-                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
-                desired *= angleMultiplier;
-            }
-            if(distanceToTarget < 1)
-            {
-                desired = 0;
-            }
-        }
-        return desired;
-    }
-
-    public float DetermineDesiredRotationalVelocity() //aleghart's code
-    {
-        Vector3 directionToTarget = steeringBehavior.target - this.transform.position;
-        float absAngle = Mathf.Abs(angleToTarget);
-        float desired;
-
-        float percentOfTurn = absAngle / 180;
-
-        desired = Mathf.Lerp(max_rotational_velocity * 0.4f, max_rotational_velocity, percentOfTurn);
-
-        if (absAngle < 10)
-        {
-            desired = max_rotational_velocity * 0.05f;
-        }
-        if (absAngle < 2 || distanceToTarget < 0.75f)
-        {
-            desired = 0;
-        }
-
-        desired *= Mathf.Sign(angleToTarget);
-        return desired;
-    }
 
     public void SetDesiredSpeed(float des)
     {
@@ -234,23 +107,6 @@ public class KinematicBehavior : MonoBehaviour
     public float GetMaxRotationalVelocity()
     {
         return max_rotational_velocity;
-    }
-
-    public float GetDistanceToTarget() //bdelinel's code
-    {
-        return distanceToTarget;
-    }
-
-    private bool CheckNextTurn()
-    {
-        Vector3 next = steeringBehavior.GetNextTarget();
-        if (next != Vector3.negativeInfinity)
-        {
-            Vector3 directionToTarget = next - this.transform.position;
-            float ang = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
-            return Mathf.Abs(ang) > 60f;
-        }
-        else { return false; }
     }
 
 }
