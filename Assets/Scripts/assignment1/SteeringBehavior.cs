@@ -16,8 +16,11 @@ public class SteeringBehavior : MonoBehaviour
     public bool lookingForFinalPoint;
     private int pointsTraveled;
 
-    public float angleToTarget;
-    public float distanceToTarget;
+    public float angleToTarget, angleToLerp;
+    public float distanceToTarget, distanceToLerp;
+
+    [SerializeField] private float arrivalTolerance; 
+
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -41,21 +44,99 @@ public class SteeringBehavior : MonoBehaviour
 
         SetLerpTarget();
 
-        kinematic.SetDesiredRotationalVelocity(DetermineDesiredRotationalVelocity());
+        kinematic.SetDesiredRotationalVelocity(DetermineDesiredRotationalVelocity(distanceToTarget < arrivalTolerance * 1.5f));
         kinematic.SetDesiredSpeed(DetermineDesiredSpeed(lookingForFinalPoint));
     }
-    private void UpdateAngleAndDistanceToTarget()
+    // ----- GIVEN FUNCTIONS -----
+    public void SetTarget(Vector3 target)
+    {
+        this.target = target;
+        if (this.path == null)
+        {
+            lookingForFinalPoint = true;
+
+        }
+        EventBus.ShowTarget(target);
+    }
+
+    public void SetPath(List<Vector3> path)
+    {
+        this.path = path;
+        if (path != null && path.Count > 0)
+        {
+            StartCoroutine(FollowPath());
+        }
+    }
+
+    public void SetMap(List<Wall> outline)
+    {
+        this.path = null;
+        this.target = transform.position;
+    }
+    
+    // ----- HELPER FUNCTIONS -----
+    private void UpdateAngleAndDistanceToTarget() //aleghart's code
     {
         Vector3 directionToTarget = target - this.transform.position;
+        Vector3 directionToLerp = lerpTarget - this.transform.position;
+
         distanceToTarget = Vector3.Distance(this.transform.position, target);
-        label2.text = "Distance to target: " + distanceToTarget;
+        distanceToLerp = Vector3.Distance(this.transform.position, lerpTarget);
+        label2.text = "Distance to target: " + distanceToTarget + " | distance to lerpTg: " + distanceToLerp;
 
 
         angleToTarget = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
-        label.text = "angle to target: " + angleToTarget;
+        angleToLerp = Vector3.SignedAngle(this.transform.forward, directionToLerp, Vector3.up);
+        label.text = "angle to target: " + angleToTarget + " | angle to lerpTg: " + angleToLerp;
+
 
 
     }
+    private void SetLerpTarget() //aleghart's code
+    {
+        if (!lookingForFinalPoint)
+        {
+            //Debug.Log("lerp can be valid");
+            float distMult = distanceToTarget  / (arrivalTolerance * 1.5f);
+            lerpTarget = Vector3.Lerp(GetNextTarget(), target, distMult);
+        }
+        else
+        {
+            lerpTarget = target;
+        }
+        //Debug.Log("lerpTg:" + lerpTarget);
+    }
+
+    public Vector3 GetNextTarget() //aleghart's code
+    {
+        if (path is null || pointsTraveled == path.Count)
+        {
+            return Vector3.negativeInfinity;
+        }
+        else
+        {
+            return path[pointsTraveled + 1];
+        }
+    }
+
+    /*public float GetDistanceToTarget() //bdelinel's code //removed by aleghart after refactor to bring all code into steeringBehavior
+    {
+        return distanceToTarget;
+    }*/
+
+    private float DistanceFromTgToNext()
+    {
+        if (lookingForFinalPoint)
+        {
+            return 0;
+        } else
+        {
+            return Vector3.Distance(target, GetNextTarget());
+        }
+    }
+
+    // ----- SPEED AND ROTVEL DETERMINERS -----
+    
     public float DetermineDesiredSpeed(bool lastTarget) //aleghart's code
     {
         float absAngle = Mathf.Abs(angleToTarget);
@@ -90,18 +171,24 @@ public class SteeringBehavior : MonoBehaviour
                 float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
                 desired *= angleMultiplier;
             }
+            
             if (distanceToTarget < 1)
             {
                 desired = 0;
             }
         }
+
+        if (!lookingForFinalPoint && DistanceFromTgToNext() < arrivalTolerance)
+        {
+            desired *= 0.5f;
+        }
+
         return desired;
     }
 
-    public float DetermineDesiredRotationalVelocity() //aleghart's code
+    public float DetermineDesiredRotationalVelocity(bool useLerp) //aleghart's code
     {
-        Vector3 directionToTarget = target - this.transform.position;
-        float absAngle = Mathf.Abs(angleToTarget);
+        float absAngle = useLerp? Mathf.Abs(angleToLerp): Mathf.Abs(angleToTarget);
         float desired;
 
         float percentOfTurn = absAngle / 180;
@@ -117,47 +204,16 @@ public class SteeringBehavior : MonoBehaviour
             desired = 0;
         }
 
-        desired *= Mathf.Sign(angleToTarget);
+        desired *= useLerp? Mathf.Sign(angleToLerp) : Mathf.Sign(angleToTarget);
         return desired;
     }
 
 
-    private void SetLerpTarget() //aleghart's code
-    {
-        if (!lookingForFinalPoint)
-        {
-            //Debug.Log("lerp can be valid");
-            float distMult = GetDistanceToTarget() / 20;
-            lerpTarget = Vector3.Lerp(GetNextTarget(), target, distMult);
-        }
-        else
-        {
-            lerpTarget = target;
-        }
-        //Debug.Log("lerpTg:" + lerpTarget);
-    }
+    
 
-    public void SetTarget(Vector3 target)
-    {
-        this.target = target;
-        if(this.path == null)
-        {
-            lookingForFinalPoint = true;
+    
 
-        }
-        EventBus.ShowTarget(target);
-    }
-
-    public void SetPath(List<Vector3> path)
-    {
-        this.path = path;
-        if (path != null && path.Count > 0)
-        {
-            StartCoroutine(FollowPath());
-        }
-    }
-
-    private IEnumerator FollowPath() //bdelinel's code
+    private IEnumerator FollowPath() //bdelinel's code, aleghart edited slightly for part 2
     {
         lookingForFinalPoint = false;
 
@@ -167,47 +223,28 @@ public class SteeringBehavior : MonoBehaviour
             Vector3 currentTarget = path[pointsTraveled];
             this.SetTarget(currentTarget);
             yield return null;
-            //aleghart edited for part 2
             if (pointsTraveled == path.Count - 1) //we're looking for the final point
             {
                 Debug.Log("On final point of path.");
                 lookingForFinalPoint = true;
-                yield return new WaitUntil(() => GetDistanceToTarget() < 0.75f);
+                yield return new WaitUntil(() => distanceToTarget < 0.75f);
 
             }
             else
             {
-                yield return new WaitUntil(() => GetDistanceToTarget() < 5f);
-                //changed to 5 on other points for larger tolerance
+                yield return new WaitUntil(() => distanceToTarget < arrivalTolerance);
+                //changed to magic number on other points for larger tolerance
             }
+            
             pointsTraveled++;
         }
     }
 
-    public void SetMap(List<Wall> outline)
-    {
-        this.path = null;
-        this.target = transform.position;
-    }
+    
 
-    public Vector3 GetNextTarget() //aleghart's code
-    {
-        if (path is null || pointsTraveled == path.Count)
-        {
-            return Vector3.negativeInfinity;
-        }
-        else
-        {
-            return path[pointsTraveled + 1];
-        }
-    }
+    
 
-    public float GetDistanceToTarget() //bdelinel's code
-    {
-        return distanceToTarget;
-    }
-
-    private bool CheckNextTurn()
+    private bool CheckNextTurn() //aleghart's code
     {
         Vector3 next = GetNextTarget();
         if (next != Vector3.negativeInfinity)
@@ -222,7 +259,7 @@ public class SteeringBehavior : MonoBehaviour
 
 
 
-    /*public float DetermineDesiredSpeedOld() //aleghart's code, from single-target follow
+    /*public float DetermineDesiredSpeedOld() //aleghart's code, from single-target follow. defunct but here for proof of how we originally did the speed calcs without a lerp.
     {
         float absAngle = Mathf.Abs(angleToTarget);
         steeringBehavior.label2.text = "Distance to target: " + distanceToTarget;

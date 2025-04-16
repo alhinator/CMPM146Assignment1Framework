@@ -1093,11 +1093,11 @@ MonoBehaviour:
   max_rotational_velocity: 200
   speed: 0
   desired_speed: 0
-  max_speed: 25
+  max_speed: 20
   linear_acceleration: 20
   rotational_acceleration: 255
   holonomic: 0
-  nonholonomic_factor: 10
+  nonholonomic_factor: 20
   start_position: {x: 0, y: 0, z: 0}
   start_rotation: {x: 0, y: 0, z: 0, w: 0}
   map: {fileID: 0}
@@ -1208,6 +1208,12 @@ MonoBehaviour:
   path: []
   label: {fileID: 200820899}
   label2: {fileID: 308255826}
+  lookingForFinalPoint: 0
+  angleToTarget: 0
+  angleToLerp: 0
+  distanceToTarget: 0
+  distanceToLerp: 0
+  arrivalTolerance: 8
 --- !u!114 &1006009576
 MonoBehaviour:
   m_ObjectHideFlags: 0
