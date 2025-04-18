@@ -19,7 +19,7 @@ public class SteeringBehavior : MonoBehaviour
     public float angleToTarget, angleToLerp;
     public float distanceToTarget, distanceToLerp;
 
-    [SerializeField] private float arrivalTolerance; 
+    [SerializeField] private float arrivalTolerance;
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -44,8 +44,9 @@ public class SteeringBehavior : MonoBehaviour
 
         SetLerpTarget();
 
-        kinematic.SetDesiredRotationalVelocity(DetermineDesiredRotationalVelocity(distanceToTarget < arrivalTolerance * 1.5f));
-        kinematic.SetDesiredSpeed(DetermineDesiredSpeed(lookingForFinalPoint));
+        float nextTurnLerpThreshold = !lookingForFinalPoint && CheckNextTurn() ? 3f : 1.5f;
+        kinematic.SetDesiredRotationalVelocity(DetermineDesiredRotationalVelocity(distanceToTarget < arrivalTolerance * nextTurnLerpThreshold));
+        kinematic.SetDesiredSpeed(DetermineDesiredSpeed(lookingForFinalPoint, distanceToTarget < arrivalTolerance * nextTurnLerpThreshold));
     }
     // ----- GIVEN FUNCTIONS -----
     public void SetTarget(Vector3 target)
@@ -73,7 +74,7 @@ public class SteeringBehavior : MonoBehaviour
         this.path = null;
         this.target = transform.position;
     }
-    
+
     // ----- HELPER FUNCTIONS -----
     private void UpdateAngleAndDistanceToTarget() //aleghart's code
     {
@@ -94,10 +95,10 @@ public class SteeringBehavior : MonoBehaviour
     }
     private void SetLerpTarget() //aleghart's code
     {
-        if (!lookingForFinalPoint)
+        if (!lookingForFinalPoint && pointsTraveled <= path.Count - 2)
         {
             //Debug.Log("lerp can be valid");
-            float distMult = distanceToTarget  / (arrivalTolerance * 1.5f);
+            float distMult = distanceToTarget / (arrivalTolerance * 1.5f);
             lerpTarget = Vector3.Lerp(GetNextTarget(), target, distMult);
         }
         else
@@ -109,7 +110,7 @@ public class SteeringBehavior : MonoBehaviour
 
     public Vector3 GetNextTarget() //aleghart's code
     {
-        if (path is null || pointsTraveled == path.Count)
+        if (path is null || pointsTraveled >= path.Count - 1)
         {
             return Vector3.negativeInfinity;
         }
@@ -118,77 +119,89 @@ public class SteeringBehavior : MonoBehaviour
             return path[pointsTraveled + 1];
         }
     }
+    private bool CheckNextTurn() //aleghart's code
+    {
+        Vector3 next = GetNextTarget();
+        if (next != Vector3.negativeInfinity)
+        {
+            Vector3 directionToTarget = next - this.transform.position;
+            float ang = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
+            return Mathf.Abs(ang) > 45f;
+        }
+        else { return false; }
+    }
 
     /*public float GetDistanceToTarget() //bdelinel's code //removed by aleghart after refactor to bring all code into steeringBehavior
     {
         return distanceToTarget;
     }*/
 
-    private float DistanceFromTgToNext()
+    /*private float DistanceFromTgToNext() //aleghart's code but defunct after a DetermineDesiredSpeed rewrite.
     {
         if (lookingForFinalPoint)
         {
             return 0;
-        } else
-        {
-            return Vector3.Distance(target, GetNextTarget());
-        }
-    }
-
-    // ----- SPEED AND ROTVEL DETERMINERS -----
-    
-    public float DetermineDesiredSpeed(bool lastTarget) //aleghart's code
-    {
-        float absAngle = Mathf.Abs(angleToTarget);
-        float desired;
-        if (distanceToTarget > 20) //outside of arrival tolerance
-        {
-
-            desired = Mathf.Lerp(kinematic.max_speed / 3, kinematic.max_speed, distanceToTarget / 20);
-            if (absAngle > 45)
-            {
-                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
-                desired *= angleMultiplier;
-            }
-
-        }
-        else if (distanceToTarget < 20 && !lastTarget)
-        {
-            if (CheckNextTurn())
-            {
-                desired = kinematic.max_speed / 4;
-            }
-            else
-            {
-                desired = kinematic.max_speed;
-            }
         }
         else
         {
-            desired = Mathf.Lerp(0, kinematic.max_speed / 1.5f, distanceToTarget / 10);
-            if (Mathf.Abs(angleToTarget) > 45)
-            {
-                float angleMultiplier = Mathf.Lerp(0.8f, 0.3f, absAngle / 180);
-                desired *= angleMultiplier;
-            }
-            
-            if (distanceToTarget < 1)
-            {
-                desired = 0;
-            }
+            return Vector3.Distance(target, GetNextTarget());
         }
+    }*/
 
-        if (!lookingForFinalPoint && DistanceFromTgToNext() < arrivalTolerance)
+    // ----- SPEED AND ROTVEL DETERMINERS -----
+
+    public float DetermineDesiredSpeed(bool lastTarget, bool useLerp) //aleghart's code
+    {
+        float distanceToUsedTG = useLerp ? distanceToLerp : distanceToTarget;
+        float absAngle = Mathf.Abs(angleToTarget);
+        float percentOfTurn = absAngle / 180;
+
+        float desired = 0;
+        if (distanceToUsedTG <= 0.75f) { return desired; }
+        if (distanceToUsedTG <= arrivalTolerance / 3) { return 0.5f; }
+
+
+        if (absAngle > 30)
+        { //need to turn
+            desired = Mathf.Lerp(kinematic.max_speed / 2.5f, kinematic.max_speed / 4, percentOfTurn);
+        }
+        else
         {
-            desired *= 0.5f;
-        }
+            //we don't need to turn, immediately.
+            if (distanceToUsedTG >= arrivalTolerance * 3)
+            { //we're far.
+                desired = kinematic.max_speed;
+            }
+            else if (!lastTarget && CheckNextTurn())
+            { //will need to turn sharply after the current checkpoint.
+                float distMult = distanceToUsedTG / (arrivalTolerance * 3);
+                desired = Mathf.Lerp(kinematic.max_speed / 4, kinematic.max_speed / 2, distMult);
+            }
+            else if (!lastTarget && !CheckNextTurn())
+            { // do not need to turn sharply after the current checkpoint.
+                float distMult = distanceToUsedTG / (arrivalTolerance * 2);
 
+                desired = Mathf.Lerp(kinematic.max_speed / 2, kinematic.max_speed, distMult);
+            }
+            else if (lastTarget)
+            {
+                float distMult = distanceToUsedTG / (arrivalTolerance * 3);
+                //Debug.Log("distmult on lasttarget" + distMult);
+                desired = Mathf.Lerp(0, kinematic.max_speed * 0.75f, distMult);
+                if (kinematic.speed > kinematic.max_speed / 0.65f) { desired *= 0.5f; } //brake hard at high speed
+            }
+            else
+            {
+                Debug.Log("in an unknown test case");
+                desired = 0; //test case
+            }
+        }
         return desired;
     }
 
     public float DetermineDesiredRotationalVelocity(bool useLerp) //aleghart's code
     {
-        float absAngle = useLerp? Mathf.Abs(angleToLerp): Mathf.Abs(angleToTarget);
+        float absAngle = useLerp ? Mathf.Abs(angleToLerp) : Mathf.Abs(angleToTarget);
         float desired;
 
         float percentOfTurn = absAngle / 180;
@@ -199,19 +212,19 @@ public class SteeringBehavior : MonoBehaviour
         {
             desired = kinematic.max_rotational_velocity * 0.05f;
         }
-        if (absAngle < 2 || distanceToTarget < 0.75f)
+        if (absAngle < 2 || distanceToTarget <= arrivalTolerance / 5)
         {
             desired = 0;
         }
 
-        desired *= useLerp? Mathf.Sign(angleToLerp) : Mathf.Sign(angleToTarget);
+        desired *= useLerp ? Mathf.Sign(angleToLerp) : Mathf.Sign(angleToTarget);
         return desired;
     }
 
 
-    
 
-    
+
+    // ----- Path Follow -----
 
     private IEnumerator FollowPath() //bdelinel's code, aleghart edited slightly for part 2
     {
@@ -227,7 +240,7 @@ public class SteeringBehavior : MonoBehaviour
             {
                 Debug.Log("On final point of path.");
                 lookingForFinalPoint = true;
-                yield return new WaitUntil(() => distanceToTarget < 0.75f);
+                yield return new WaitUntil(() => distanceToTarget <= 0.75f);
 
             }
             else
@@ -235,26 +248,16 @@ public class SteeringBehavior : MonoBehaviour
                 yield return new WaitUntil(() => distanceToTarget < arrivalTolerance);
                 //changed to magic number on other points for larger tolerance
             }
-            
+
             pointsTraveled++;
         }
     }
 
-    
 
-    
 
-    private bool CheckNextTurn() //aleghart's code
-    {
-        Vector3 next = GetNextTarget();
-        if (next != Vector3.negativeInfinity)
-        {
-            Vector3 directionToTarget = next - this.transform.position;
-            float ang = Vector3.SignedAngle(this.transform.forward, directionToTarget, Vector3.up);
-            return Mathf.Abs(ang) > 60f;
-        }
-        else { return false; }
-    }
+
+
+
 
 
 
